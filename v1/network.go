@@ -29,108 +29,206 @@ type Network struct {
 	debug          bool
 }
 
+// getRandomFloats generates an array of random floats.
+//
+// Parameters:
+// - sz: The size of the array to generate.
+//
+// Returns:
+// - An array of random floats with the length specified by the parameter 'sz'.
 func getRandomFloats(sz int) []float64 {
+	// Create a slice of the specified size.
 	r := make([]float64, sz)
-	for i, _ := range r {
+
+	// Iterate over each element of the slice.
+	for i := range r {
+		// Generate a random float using the ApplyRandom function and assign it to the current element of the slice.
 		r[i] = ApplyRandom(0)
 	}
+
+	// Return the generated slice of random floats.
 	return r
 }
 
-// NewSimple creates a new simple neural network
+// New creates a new instance of the Network struct.
+//
+// Parameters:
+// - c: A pointer to the NetworkConfiguration struct that contains the configuration settings for the network.
+//
+// Returns:
+// - A pointer to the newly created Network struct and an error if any.
 func New(c *NetworkConfiguration) (*Network, error) {
+	// Create a new instance of the Network struct using the configuration settings.
 	s := Network{
-		topology:     c.Topology,
-		learningRate: c.LearningRate,
-		functionName: c.Functions,
-		activation:   FunctionList[c.Functions].Activation,
-		derivative:   FunctionList[c.Functions].Derivative,
-		debug:        !c.Quiet,
+		topology:     c.Topology,                           // Set the topology of the network.
+		learningRate: c.LearningRate,                       // Set the learning rate of the network.
+		functionName: c.Functions,                          // Set the function name of the network.
+		activation:   FunctionList[c.Functions].Activation, // Set the activation function of the network.
+		derivative:   FunctionList[c.Functions].Derivative, // Set the derivative function of the network.
+		debug:        !c.Quiet,                             // Set the debug mode of the network.
 	}
-	for i := 0; i < len(s.topology)-1; i++ {
-		wm := NewMatrix(s.topology[i+1], s.topology[i])
-		s.weightMatrices = append(s.weightMatrices, wm.ApplyFunction(ApplyRandom))
 
-		bm := NewMatrix(s.topology[i+1], 1)
-		s.biasMatrices = append(s.biasMatrices, bm.ApplyFunction(ApplyRandom))
+	// Iterate over each layer of the network.
+	for i := 0; i < len(s.topology)-1; i++ {
+		// Create a new weight matrix for the current layer.
+		wm := NewMatrix(s.topology[i+1], s.topology[i])                            // Set the dimensions of the weight matrix.
+		s.weightMatrices = append(s.weightMatrices, wm.ApplyFunction(ApplyRandom)) // Apply a random function to each element of the weight matrix.
+
+		// Create a new bias matrix for the current layer.
+		bm := NewMatrix(s.topology[i+1], 1)                                    // Set the dimensions of the bias matrix.
+		s.biasMatrices = append(s.biasMatrices, bm.ApplyFunction(ApplyRandom)) // Apply a random function to each element of the bias matrix.
 	}
+
+	// Create a slice to store the value matrices for each layer.
 	s.valueMatrices = make([]*Matrix, len(s.topology))
+
+	// Return the newly created Network struct.
 	return &s, nil
 }
 
-// FeedForward runs the network forwards
+// feedForward performs a feed-forward operation on the network.
+//
+// Parameters:
+// - input: A slice of floats representing the input values.
+//
+// Returns:
+// - An error if the input size is incorrect.
 func (n *Network) feedForward(input []float64) error {
+	// Check if the input size is correct.
 	if len(input) != int(n.topology[0]) {
 		return errors.New("incorrect input size")
 	}
+
+	// Create a new matrix to hold the input values.
 	values := NewMatrix(uint32(len(input)), 1)
+
+	// Populate the input values into the matrix.
 	for i, in := range input {
 		values.Set(uint32(i), 0, in)
 	}
+
 	var err error
-	// feed forward to next layer
+
+	// Feed forward to each layer.
 	for i, w := range n.weightMatrices {
+		// Set the current layer's values to the input values.
 		n.valueMatrices[i] = values
+
+		// Multiply the input values with the weight matrix.
 		values, err = values.Multiply(w)
 		if err != nil {
 			return fmt.Errorf("feed forward error: %v", err)
 		}
+
+		// Add the bias values to the current layer's values.
 		values, err = values.Add(n.biasMatrices[i])
 		if err != nil {
 			return fmt.Errorf("feed forward error: %v", err)
 		}
+
+		// Apply the activation function to the current layer's values.
 		values = values.ApplyFunction(n.activation)
 	}
+
+	// Set the output values of the network to the final layer's values.
 	n.valueMatrices[len(n.weightMatrices)] = values
 
+	// Return nil if there are no errors.
 	return nil
 }
 
+// backPropagate performs the back propagation operation on the network.
+//
+// Parameters:
+// - tgtOut: A slice of floats representing the target output values.
+//
+// Returns:
+// - An error if the target output size is incorrect.
 func (n *Network) backPropagate(tgtOut []float64) error {
+	// Check if the target output size is correct.
 	if len(tgtOut) != int(n.topology[len(n.topology)-1]) {
 		return errors.New("output is incorrect size")
 	}
+
+	// Create a new matrix to hold the target output values.
 	errMtx := NewMatrix(uint32(len(tgtOut)), 1)
+
+	// Populate the target output values into the matrix.
 	errMtx.SetValues(tgtOut)
+
+	// Calculate the error matrix.
 	errMtx, err := errMtx.Add(n.valueMatrices[len(n.valueMatrices)-1].Negative())
 	if err != nil {
 		return fmt.Errorf("back propagation error: %v", err)
 	}
 
+	// Iterate through the layers from the last layer to the first layer.
 	for i := len(n.weightMatrices) - 1; i >= 0; i-- {
+		// Calculate the error at the current layer.
 		prevErrors, err := errMtx.Multiply(n.weightMatrices[i].Transpose())
 		if err != nil {
 			return fmt.Errorf("back propagation error: %v", err)
 		}
+
+		// Apply the derivative of the activation function to the output values of the current layer.
 		dOutputs := n.valueMatrices[i+1].ApplyFunction(n.derivative)
+
+		// Calculate the gradients of the error with respect to the weights and biases.
 		gradients, err := errMtx.MultiplyElements(dOutputs)
 		if err != nil {
 			return fmt.Errorf("back propagation error: %v", err)
 		}
 		gradients = gradients.MultiplyScalar(n.learningRate)
+
+		// Calculate the weight gradients.
 		weightGradients, err := n.valueMatrices[i].Transpose().Multiply(gradients)
 		if err != nil {
 			return fmt.Errorf("back propagation error: %v", err)
 		}
+
+		// Update the weight matrices.
 		n.weightMatrices[i], err = n.weightMatrices[i].Add(weightGradients)
 		if err != nil {
 			return fmt.Errorf("back propagation error: %v", err)
 		}
+
+		// Update the bias matrices.
 		n.biasMatrices[i], err = n.biasMatrices[i].Add(gradients)
 		if err != nil {
 			return fmt.Errorf("back propagation error: %v", err)
 		}
+
+		// Update the error matrix for the next iteration.
 		errMtx = prevErrors
 	}
-	return nil
 
+	return nil
 }
 
+// getPrediction returns the values of the output layer of the network.
+//
+// This function does not take any parameters.
+// It returns a slice of floats representing the output values of the network.
 func (n *Network) getPrediction() []float64 {
+	// The output values of the network are stored in the last value matrix.
+	// We return the values of this matrix.
+	// The Values() function returns a slice of floats representing the values of the matrix.
 	return n.valueMatrices[len(n.valueMatrices)-1].Values()
 }
 
+// Train trains the network using the training data.
+//
+// This function takes a TrainingData object as a parameter and returns the average
+// error and an error object.
+//
+// The function iterates over the training data for the specified number of iterations.
+// During each iteration, it feeds the input data through the network and backpropagates
+// the error to update the network's weights and biases.
+// After each iteration, it checks if the network's error is within the specified tolerance.
+// If it is, the training process is terminated early.
+// The function returns the average error and a nil error object if the training is successful.
 func (n *Network) Train(td *TrainingData) (float64, error) {
+	// Initialize the training process and print debug information if debug mode is enabled
 	var start time.Time
 	if n.debug {
 		fmt.Println("initialising training...")
@@ -152,8 +250,9 @@ func (n *Network) Train(td *TrainingData) (float64, error) {
 		start = time.Now()
 		fmt.Printf("\ntraining commencing at %v\n", start)
 	}
-	iterCount := 0
+	iterCount := 0 // Keep track of the number of iterations
 	for i := 0; i < int(td.Iterations); i++ {
+		// Print a dot for each 1000 iterations and a new line for each 80,000 iterations
 		if n.debug {
 			iterCount++
 			if i%1000 == 0 {
@@ -161,9 +260,9 @@ func (n *Network) Train(td *TrainingData) (float64, error) {
 					fmt.Printf(" %v\n", i)
 				}
 				fmt.Print(".")
-
 			}
 		}
+		// Iterate over the training data and feed it through the network
 		for {
 			row := td.NextRow()
 			if row == nil {
@@ -178,6 +277,7 @@ func (n *Network) Train(td *TrainingData) (float64, error) {
 		}
 		errSum = 0
 		errorWithinTolerence := true
+		// Calculate the average error for the testing data
 		for _, errCheck := range td.TestData() {
 			answer, err := n.Predict(errCheck.Input)
 			if err != nil {
@@ -188,6 +288,7 @@ func (n *Network) Train(td *TrainingData) (float64, error) {
 				v += math.Pow(errCheck.Ouput[i]-a, 2)
 			}
 			v /= float64(len(answer))
+			// Check if the error is within the specified tolerance
 			if math.Sqrt(v) > td.TargetError {
 				errorWithinTolerence = false
 				break
@@ -195,6 +296,7 @@ func (n *Network) Train(td *TrainingData) (float64, error) {
 			errSum += v
 		}
 		errSum = math.Sqrt(errSum / float64(len(td.TestData())))
+		// Check if the error is within the specified tolerance
 		if errorWithinTolerence && errSum <= td.TargetError {
 			if n.debug {
 				fmt.Print("\nterminating early. Within tolerance.")
@@ -202,6 +304,7 @@ func (n *Network) Train(td *TrainingData) (float64, error) {
 			break
 		}
 	}
+	// Print the training completion time and the number of iterations if debug mode is enabled
 	if n.debug {
 		stop := time.Now()
 		fmt.Printf("\ntraining complete at %v\n", stop)
@@ -209,108 +312,223 @@ func (n *Network) Train(td *TrainingData) (float64, error) {
 		fmt.Printf("\t%v iterations run\n", iterCount)
 		fmt.Printf("\terror margin is %v\n", errSum)
 	}
+	// Return the average error and a nil error object if the training is successful
 	return errSum, nil
 }
 
+// Predict uses the network to predict the output given an input.
+// It performs a feed-forward operation on the network and returns the predicted output.
+//
+// Parameters:
+// - input: A slice of floats representing the input values.
+//
+// Returns:
+// - A slice of floats representing the predicted output values.
+// - An error if there is an error during the prediction.
 func (n *Network) Predict(input []float64) ([]float64, error) {
+	// Perform a feed-forward operation on the network.
 	err := n.feedForward(input)
 	if err != nil {
+		// Return an error if there is an error during the feed-forward operation.
 		return nil, fmt.Errorf("prediction error: %v", err)
 	}
+	// Return the predicted output values.
 	return n.getPrediction(), nil
 }
 
+// ToSaveData converts the network to a SaveData object, which can be used to save the network's state.
+//
+// It returns a pointer to a SaveData object.
 func (n *Network) ToSaveData() *SaveData {
+	// Create a new SaveData object.
 	sd := SaveData{
-		Topology:       n.topology,
-		LearningRate:   n.learningRate,
+		// Set the topology, learning rate, and function name.
+		Topology:     n.topology,
+		LearningRate: n.learningRate,
+		Functions:    uint32(n.functionName),
+		// Create slices to hold the weight and bias matrices' save data.
 		WeightMatrices: make([]*MatrixSaveData, len(n.weightMatrices)),
 		BiasMatrices:   make([]*MatrixSaveData, len(n.biasMatrices)),
-		Functions:      uint32(n.functionName),
 	}
+	// Convert each weight matrix to save data and add it to the save data object.
 	for i, wm := range n.weightMatrices {
 		sd.WeightMatrices[i] = wm.ToSaveData()
 	}
+	// Convert each bias matrix to save data and add it to the save data object.
 	for i, bm := range n.biasMatrices {
 		sd.BiasMatrices[i] = bm.ToSaveData()
 	}
+	// Return the save data object.
 	return &sd
 }
 
+// ToJson converts the network to its JSON representation.
+//
+// It returns the JSON representation as a byte slice and an error if there is an error during the conversion.
 func (n *Network) ToJson() ([]byte, error) {
-	return json.Marshal(n.ToSaveData())
+	// Convert the network to a SaveData object.
+	saveData := n.ToSaveData()
+	// Convert the SaveData object to its JSON representation.
+	// The json.Marshal function is used to convert the SaveData object to its JSON representation.
+	// The returned byte slice contains the JSON representation of the SaveData object.
+	// The error is returned if there is an error during the conversion.
+	return json.Marshal(saveData)
 }
 
+// Write writes the network's JSON representation to the provided writer.
+// It returns an error if there is an error during the conversion or writing process.
 func (n *Network) Write(w io.Writer) error {
+	// Convert the network to its JSON representation.
 	j, err := n.ToJson()
 	if err != nil {
 		return fmt.Errorf("network write error: %v", err)
 	}
+
+	// Write the JSON representation to the writer.
+	// The Write method of the writer is used to write the JSON representation.
+	// The number of bytes written is returned.
+	// If there is an error during the writing process, an error is returned.
 	c, err := w.Write(j)
 	if err != nil {
 		return fmt.Errorf("network write error: %v", err)
 	}
+
+	// Check if the number of bytes written is equal to the length of the JSON representation.
+	// If it is not, an error is returned.
 	if c != len(j) {
 		return errors.New("incorrect number of bytes written")
 	}
+
+	// Return nil if there are no errors.
 	return nil
 }
 
+// SaveToFile saves the network's JSON representation to a file.
+// It takes the file path as a parameter and returns an error if there is an error during the saving process.
 func (n *Network) SaveToFile(fp string) error {
+	// Convert the network to its JSON representation.
 	j, err := n.ToJson()
 	if err != nil {
+		// Return an error with a formatted message if there is an error during the conversion.
 		return fmt.Errorf("error saving data: %v", err)
 	}
+	// Write the JSON representation to the file.
+	// The os.WriteFile function is used to write the JSON representation to the file.
+	// It takes the file path, the JSON representation, and the file permission mode as parameters.
+	// It returns an error if there is an error during the writing process.
 	return os.WriteFile(fp, j, os.ModePerm)
 }
 
+// SetDebug sets the debug mode of the network.
+//
+// The debug mode determines whether debug information is printed during the training process.
+//
+// Parameters:
+// - v: A boolean value indicating whether the debug mode is enabled (true) or disabled (false).
 func (n *Network) SetDebug(v bool) {
+	// Set the debug mode of the network to the specified value.
 	n.debug = v
 }
 
+// Debug returns the debug mode of the network.
+//
+// The debug mode determines whether debug information is printed during the training process.
+//
+// Returns:
+// - A boolean value indicating whether the debug mode is enabled (true) or disabled (false).
 func (n *Network) Debug() bool {
+	// Return the debug mode of the network.
 	return n.debug
 }
 
+// FromJson creates a Network object from its JSON representation.
+//
+// This function takes a byte slice containing the JSON representation of a Network object
+// and returns a pointer to the created Network object and an error if there is an error during the creation.
+//
+// Parameters:
+// - b: A byte slice containing the JSON representation of a Network object.
+//
+// Returns:
+// - A pointer to the created Network object.
+// - An error if there is an error during the creation.
 func FromJson(b []byte) (*Network, error) {
+	// Create a SaveData object to hold the JSON representation.
 	sd := SaveData{}
+
+	// Unmarshal the JSON representation into the SaveData object.
 	err := json.Unmarshal(b, &sd)
 	if err != nil {
+		// Return an error with a formatted message if there is an error during the unmarshalling.
 		return nil, fmt.Errorf("network unmarshal error: %v", err)
 	}
 
+	// Create a Network object from the SaveData object and return it.
 	return FromSaveData(&sd)
 }
 
+// FromSaveData creates a Network object from its SaveData representation.
+//
+// This function takes a pointer to a SaveData object and returns a pointer to the created Network object
+// and an error if there is an error during the creation.
+//
+// Parameters:
+// - sd: A pointer to a SaveData object containing the representation of a Network object.
+//
+// Returns:
+// - A pointer to the created Network object.
+// - An error if there is an error during the creation.
 func FromSaveData(sd *SaveData) (*Network, error) {
+	// Check if the SaveData object is nil.
 	if sd == nil {
+		// Return an error indicating that the SaveData object is missing.
 		return nil, errors.New("missing save data")
 	}
+
+	// Create slices to hold the weight and bias matrices.
 	weightMatrices := make([]*Matrix, len(sd.WeightMatrices))
+	biasMatrices := make([]*Matrix, len(sd.BiasMatrices))
+
+	// Iterate through the weight matrices in the SaveData object.
 	for i, wsd := range sd.WeightMatrices {
+		// Create a Matrix object from the weight matrix data in the SaveData object.
 		wm, err := MatrixFromSaveData(wsd)
 		if err != nil {
+			// Return an error with a formatted message indicating the error in applying the weight matrix.
 			return nil, fmt.Errorf("unable to apply weight matrix: %v", err)
 		}
+		// Add the created Matrix object to the weightMatrices slice.
 		weightMatrices[i] = wm
 	}
 
-	biasMatrices := make([]*Matrix, len(sd.BiasMatrices))
+	// Iterate through the bias matrices in the SaveData object.
 	for i, bsd := range sd.BiasMatrices {
+		// Create a Matrix object from the bias matrix data in the SaveData object.
 		bm, err := MatrixFromSaveData(bsd)
 		if err != nil {
+			// Return an error with a formatted message indicating the error in applying the bias matrix.
 			return nil, fmt.Errorf("unable to apply bias matrix: %v", err)
 		}
+		// Add the created Matrix object to the biasMatrices slice.
 		biasMatrices[i] = bm
 	}
 
+	// Create a slice to hold the value matrices.
 	valueMatrices := make([]*Matrix, len(sd.Topology))
+
+	// Iterate through the topology in the SaveData object.
 	for i, t := range sd.Topology {
+		// Create a new Matrix object with the specified size and add it to the valueMatrices slice.
 		valueMatrices[i] = NewMatrix(t, 1)
 	}
 
+	// Get the function name from the SaveData object.
 	fn := FunctionName(sd.Functions)
+
+	// Get the corresponding Functions struct from the FunctionList based on the function name.
 	f := FunctionList[fn]
+
+	// Create a new Network object with the specified values and return it.
 	n := Network{
 		topology:       sd.Topology,
 		learningRate:   sd.LearningRate,
@@ -325,31 +543,50 @@ func FromSaveData(sd *SaveData) (*Network, error) {
 	return &n, nil
 }
 
+// Read reads the network's JSON representation from the provided reader.
+// It takes an io.Reader as a parameter and returns a pointer to the created Network object
+// and an error if there is an error during the creation.
 func Read(r io.Reader) (*Network, error) {
-	b := make([]byte, 0, 64)
-	res := make([]byte, 0)
-	t := 0
+	// Create a buffer to hold the data read from the reader.
+	buf := make([]byte, 0, 64)
+	// Create a slice to hold the final data.
+	result := make([]byte, 0)
+	// Create a variable to keep track of the total number of bytes read.
+	total := 0
+	// Loop until there is no more data to read.
 	for {
-		c, err := r.Read(b)
+		// Read data from the reader.
+		count, err := r.Read(buf)
+		// If there is an error during the reading process, return an error.
 		if err != nil {
 			return nil, fmt.Errorf("read error: %v", err)
 		}
-		if c > 0 {
-			t += c
-			res = append(res, b[:c]...)
+		// If the number of bytes read is greater than 0, update the total count.
+		if count > 0 {
+			total += count
+			// Append the read data to the result slice.
+			result = append(result, buf[:count]...)
 		}
-		if c < len(b) {
+		// If the number of bytes read is less than the size of the buffer,
+		// it means there is no more data to read, so break the loop.
+		if count < len(buf) {
 			break
 		}
-
 	}
-	return FromJson(res)
+	// Create a Network object from the JSON representation and return it.
+	return FromJson(result)
 }
 
+// FromFile reads the network's JSON representation from a file and returns a
+// pointer to the created Network object and an error if there is an error during
+// the creation. The function takes a file path as a parameter and returns a pointer
+// to the created Network object and an error if there is an error during the creation.
 func FromFile(fp string) (*Network, error) {
+	// Read the file and return an error if there is an error during the reading process.
 	b, err := os.ReadFile(fp)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read data: %v", err)
 	}
+	// Create a Network object from the JSON representation and return it.
 	return FromJson(b)
 }
