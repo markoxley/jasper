@@ -68,27 +68,6 @@ func getRandom(unused float64) float64 {
 	return rand.Float64()
 }
 
-// getRandomFloats generates an array of random floats.
-//
-// Parameters:
-// - sz: The size of the array to generate.
-//
-// Returns:
-// - An array of random floats with the length specified by the parameter 'sz'.
-func getRandomFloats(sz int) []float64 {
-	// Create a slice of the specified size.
-	r := make([]float64, sz)
-
-	// Iterate over each element of the slice.
-	for i := range r {
-		// Generate a random float using the ApplyRandom function and assign it to the current element of the slice.
-		r[i] = getRandom(0)
-	}
-
-	// Return the generated slice of random floats.
-	return r
-}
-
 // softMax calculates the softmax function on a given Matrix.
 //
 // The softmax function is used to normalize a set of values into a probability distribution.
@@ -337,7 +316,7 @@ func (n *Network) Train(td *TrainingData) (float64, error) {
 		fmt.Printf("\t%v total synapse count\n", totalSynapsCount)
 		fmt.Println("\npreparing data")
 	}
-	td.Prepare()
+	td.prepare()
 	if n.debug {
 		fmt.Printf("\t%v rows of training data\n", td.TrainingCount())
 		fmt.Printf("\t%v rows of testing data\n", td.TestCount())
@@ -362,7 +341,7 @@ func (n *Network) Train(td *TrainingData) (float64, error) {
 		}
 		// Iterate over the training data and feed it through the network
 		for {
-			row := td.NextRow()
+			row := td.nextRow()
 			if row == nil {
 				break
 			}

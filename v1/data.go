@@ -60,14 +60,14 @@ func (d *TrainingData) AddRow(inputs, output []float64) {
 	})
 }
 
-// Prepare prepares the training data by splitting it into training and testing
+// prepare prepares the training data by splitting it into training and testing
 // data sets based on the specified split value.
 //
 // The training data set will contain approximately split * len(d.Data) rows.
 // The testing data set will contain the remaining rows.
 //
 // No return value.
-func (d *TrainingData) Prepare() {
+func (d *TrainingData) prepare() {
 	// Determine the number of rows to be used for training
 	trainCount := int(math.Round(float64(len(d.Data)) * d.Split))
 	// Determine the number of rows to be used for testing
@@ -107,29 +107,15 @@ func (d *TrainingData) Prepare() {
 	d.position = 0
 }
 
-// RandomTrainingRow returns a random training data row from the training data slice.
-//
-// It does this by generating a random index between 0 and the length of the training data slice
-// and returning the data row at that index.
-//
-// Returns a pointer to a DataRow struct.
-func (d *TrainingData) RandomTrainingRow() *DataRow {
-	// Generate a random index between 0 and the length of the training data slice
-	randomIndex := rand.Intn(len(d.trainingData))
-
-	// Return the data row at the random index
-	return d.trainingData[randomIndex]
-}
-
-// NextRow returns the next training data row from the training data slice.
+// nextRow returns the next training data row from the training data slice.
 //
 // If the current position is greater than or equal to the length of the training
 // data slice, it resets the position to 0 and returns nil. Otherwise, it returns
 // the data row at the current position and increments the position for the next
-// call to NextRow.
+// call to nextRow.
 //
 // Returns a pointer to a DataRow struct.
-func (d *TrainingData) NextRow() *DataRow {
+func (d *TrainingData) nextRow() *DataRow {
 	// If the current position is beyond the length of the training data slice,
 	// reset the position to 0 and return nil.
 	if d.position >= len(d.trainingData) {
