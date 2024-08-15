@@ -1,182 +1,366 @@
+// activationfunctions.go - Activation functions used in the neural network.
+//
+// Copyright 2024 Mark Oxley
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
 package jasper
 
-import (
-	"math"
-	"math/rand"
-)
+import "math"
 
-// type NeuralFunction func(v float64) float64
+// ActivationFunction is an enumeration of the different activation functions
+// that can be used in a neural network.
+//
+// The constants that can be used are Sigmoid, Relu, Tanh, LeakyRelu, Softplus,
+// Elu, Gelu, Swish, and Linear.
+type ActivationFunction int
+
+// NeuralFunction is a function that takes a float64 and returns a float64.
+// It is used by the activation functions in the network.
 type NeuralFunction func(v float64) float64
 
-type FunctionName int
-type Functions struct {
-	Activation NeuralFunction
-	Derivative NeuralFunction
-}
-
 const (
-	Sigmoid FunctionName = iota
+	// Sigmoid is the sigmoid activation function.
+	Sigmoid ActivationFunction = iota
+	// Relu is the rectified linear unit activation function.
 	Relu
+	// Tanh is the hyperbolic tangent activation function.
 	Tanh
+	// LeakyRelu is the leaky rectified linear unit activation function.
+	LeakyRelu
+	// Softplus is the softplus activation function.
+	Softplus
+	// Swish is the swish activation function.
+	Swish
+	// ELU is the exponential linear unit activation function.
+	ELU
+	// GELU is the Gaussian exponential linear unit activation function.
+	GELU
+	// Linear is the linear activation function.
+	Linear
 )
 
-// FunctionList is a map that associates each FunctionName with its corresponding
-// Functions struct. The Functions struct contains the activation and derivative
-// functions for each function name.
-var FunctionList map[FunctionName]Functions
-
-// init initializes the FunctionList map. It is a special function in Go that
-// runs before the main function.
-func init() {
-	// Initialize the FunctionList map with the available function names and their
-	// corresponding activation and derivative functions.
-	FunctionList = map[FunctionName]Functions{
-		// Sigmoid function
-		Sigmoid: {
-			// Activation function for the sigmoid function
-			Activation: sigmoid,
-			// Derivative function for the sigmoid function
-			Derivative: sigmoidDerivative,
-		},
-		// ReLU function
-		Relu: {
-			// Activation function for the ReLU function
-			Activation: relu,
-			// Derivative function for the ReLU function
-			Derivative: reluDerivative,
-		},
-		// Hyperbolic Tangent function
-		Tanh: {
-			// Activation function for the tanh function
-			Activation: tanh,
-			// Derivative function for the tanh function
-			Derivative: tanhDerivative,
-		},
-	}
-}
-
-// ApplyRandom returns a random float64 value between 0 and 1.
-//
-// This function is used to generate random values for initializing the weights and biases
-// of the neural network during the construction of the network.
+// GetActivationFunctions returns an instance of the ActivationSolver interface for the given ActivationFunction.
 //
 // Parameters:
-// - v (float64): The input value. This parameter is not used in this function.
+// - name: The name of the activation function.
 //
 // Returns:
-// - float64: The random float64 value between 0 and 1.
-// ApplyRandom returns a random value
-func ApplyRandom(v float64) float64 {
-	// Generate a random float64 value between 0 and 1.
-	// The rand.Float64() function generates a random float64 value in the interval [0, 1).
-	return rand.Float64()
+// - ActivationSolver: An instance of the ActivationSolver interface.
+func GetActivationFunctions(name ActivationFunction) ActivationSolver {
+	switch name {
+	case Sigmoid:
+		return fsigmoid{}
+	case Relu:
+		return frelu{}
+	case Tanh:
+		return ftanh{}
+	case LeakyRelu:
+		return fleakyrelu{}
+	case Softplus:
+		return fsoftlus{}
+	case Swish:
+		return fswish{}
+	case ELU:
+		return felu{}
+	case GELU:
+		return fgelu{}
+	case Linear:
+		return flinear{}
+	}
+	return nil
 }
 
-// Sigmoid returns the sigmoid value of the argument.
+// ActivationSolver is an interface used to abstract away the underlying
+// implementation details of activation functions. It is used to provide a
+// consistent interface for activation functions.
 //
-// The sigmoid function maps any real-valued number to a value between 0 and 1.
+// The interface is comprised of two methods:
+// - F(v float64): Used to compute the output of the activation function.
+// - Df(v float64): Used to compute the derivative of the activation function.
+type ActivationSolver interface {
+	// F computes the output of the activation function given the input v.
+	F(v float64) float64
+	// Df computes the derivative of the activation function given the input v.
+	Df(v float64) float64
+}
+
+// fsigmoid is an implementation of the sigmoid activation function.
+//
+// It implements the ActivationSolver interface, which is used to abstract away
+// the underlying implementation details of activation functions.
+type fsigmoid struct{}
+
+// F computes the output of the sigmoid activation function.
 //
 // Parameters:
 // - v (float64): The input value.
 //
 // Returns:
-// - float64: The sigmoid value of the input.
-func sigmoid(v float64) float64 {
-	// The sigmoid function can be expressed as 1 / (1 + exp(-x)).
-	// It is commonly used in logistic regression and neural networks.
-	// Here, we use the built-in math.Exp() function to calculate the exponential
-	// value and subtract it from 1.
-	return 1.0 / (1 + math.Exp(-v))
+// - float64: The output of the sigmoid activation function.
+func (fsigmoid) F(v float64) float64 {
+	return 1 / (1 + math.Exp(-v))
 }
 
-// sigmoidDerivative calculates the derivative of the sigmoid function.
-//
-// The derivative of the sigmoid function is given by:
-// f'(x) = f(x) * (1 - f(x))
+// Df computes the derivative of the sigmoid activation function given the input v.
 //
 // Parameters:
-// - v (float64): The input value for which the derivative is to be calculated.
+// - v (float64): The input value.
 //
 // Returns:
-// - float64: The derivative of the sigmoid function evaluated at v.
-func sigmoidDerivative(v float64) float64 {
-	// The derivative of the sigmoid function is given by:
-	// f'(x) = f(x) * (1 - f(x))
-	//
-	// where f(x) is the sigmoid function.
+// - float64: The derivative of the sigmoid activation function.
+func (fsigmoid) Df(v float64) float64 {
 	return v * (1 - v)
 }
 
-// relu calculates the Rectified Linear Unit (ReLU) activation function.
+// frelu is an implementation of the ReLU (Rectified Linear Unit) activation
+// function.
 //
-// The ReLU function maps any negative value to zero and leaves positive values unchanged.
+// It implements the ActivationSolver interface, which is used to abstract away
+// the underlying implementation details of activation functions.
+type frelu struct{}
+
+// F computes the output of the ReLU activation function.
 //
 // Parameters:
-// - v (float64): The input value for which the ReLU function is to be applied.
+// - v (float64): The input value to the ReLU activation function.
 //
 // Returns:
-// - float64: The output of the ReLU function.
-//
-// The ReLU function is defined as:
-// f(x) = max(0, x)
-func relu(v float64) float64 {
-	// The ReLU function maps any negative value to zero and leaves positive values unchanged.
-	// Here, we use the math.Max() function to calculate the maximum between 0 and the input value.
+// - float64: The output of the ReLU activation function, which is the maximum of 0 and the input value.
+func (frelu) F(v float64) float64 {
 	return math.Max(0, v)
 }
 
-// reluDerivative calculates the derivative of the Rectified Linear Unit (ReLU) function.
-//
-// The derivative of the ReLU function is given by:
-// f'(x) = 0 if x <= 0
-// f'(x) = 1 if x > 0
+// Df computes the derivative of the ReLU activation function given the input v.
 //
 // Parameters:
-// - v (float64): The input value for which the derivative is to be calculated.
+// - v (float64): The input value.
 //
 // Returns:
-// - float64: The derivative of the ReLU function evaluated at v.
-func reluDerivative(v float64) float64 {
-	// If the input value is less than or equal to 0, return 0.
-	// This is because the ReLU function sets all negative values to 0.
-	if v <= 0 {
-		return 0
+// - float64: The derivative of the ReLU activation function.
+func (frelu) Df(v float64) float64 {
+	if v > 0 {
+		return 1
 	}
-
-	// If the input value is greater than 0, return 1.
-	// This is because the derivative of the ReLU function is 1 for all positive values.
-	return 1
+	return 0
 }
 
-// tanh applies the Hyperbolic Tangent (tanh) function element-wise to the input tensor.
+// ftanh is an implementation of the hyperbolic tangent activation function.
 //
-// The tanh function maps any real number to a value between -1 and 1, thus
-// compressing the input data into a range more suitable for deep neural networks.
+// It implements the ActivationSolver interface, which is used to abstract away
+// the underlying implementation details of activation functions.
+type ftanh struct{}
+
+// F computes the output of the hyperbolic tangent activation function.
 //
 // Parameters:
-// - v (float64): The input value for which the tanh function is to be applied.
+// - v (float64): The input value to the hyperbolic tangent activation function.
 //
 // Returns:
-// - float64: The output of the tanh function.
-func tanh(v float64) float64 {
-	// Apply the hyperbolic tangent function to the input value.
-	// The math.Tanh() function returns the hyperbolic tangent of x.
+// - float64: The output of the hyperbolic tangent activation function.
+func (ftanh) F(v float64) float64 {
 	return math.Tanh(v)
 }
 
-// tanhDerivative calculates the derivative of the hyperbolic tangent (tanh) function.
-//
-// The derivative of the tanh function is given by:
-// f'(x) = 1 - (tanh(x))^2
+// Df computes the derivative of the hyperbolic tangent activation function.
 //
 // Parameters:
-// - v (float64): The input value for which the derivative is to be calculated.
+// - v (float64): The input value.
 //
 // Returns:
-// - float64: The derivative of the tanh function evaluated at v.
-func tanhDerivative(v float64) float64 {
-	// Calculate the derivative of the tanh function using the formula:
-	// f'(x) = 1 - (tanh(x))^2
-	// where x is the input value.
+// - float64: The derivative of the hyperbolic tangent activation function.
+func (ftanh) Df(v float64) float64 {
 	return 1 - (v * v)
+}
+
+// fleakyrelu is an implementation of the leaky ReLU activation function.
+//
+// It implements the ActivationSolver interface, which is used to abstract away
+// the underlying implementation details of activation functions.
+type fleakyrelu struct{}
+
+// F computes the output of the leaky ReLU activation function.
+//
+// Parameters:
+// - v (float64): The input value to the leaky ReLU activation function.
+//
+// Returns:
+// - float64: The output of the leaky ReLU activation function.
+func (fleakyrelu) F(v float64) float64 {
+	if v > 0 {
+		return v
+	}
+	return 0.01 * v
+}
+
+// Df computes the derivative of the Leaky ReLU activation function.
+//
+// Parameters:
+// - v (float64): The input value.
+//
+// Returns:
+// - float64: The derivative of the Leaky ReLU activation function. If the input is greater than 0, it returns 1. Otherwise, it returns 0.01.
+func (fleakyrelu) Df(v float64) float64 {
+	if v > 0 {
+		return 1
+	}
+	return 0.01
+}
+
+// flinear is a struct representing the linear activation function.
+//
+// Linear stands for the identity function, where the output is equal to the input.
+type flinear struct{}
+
+// F computes the output of the linear activation function.
+//
+// Parameters:
+// - v (float64): The input value to the linear activation function.
+//
+// Returns:
+// - float64: The output of the linear activation function, which is the same as the input value.
+func (flinear) F(v float64) float64 {
+	return v
+}
+
+// Df computes the derivative of the linear activation function.
+//
+// Parameters:
+// - v (float64): The input value.
+//
+// Returns:
+// - float64: The derivative of the linear activation function.
+func (flinear) Df(v float64) float64 {
+	return 1
+}
+
+// fswish is a struct that represents the Swish activation function.
+//
+// The Swish activation function is also known as the SiLU (Sigmoid-weighted Linear Unit) function.
+// It is defined as:
+//
+//     f(x) = x / (1 + exp(-x))
+//
+type fswish struct{}
+
+// F calculates the output of the fswish function.
+//
+// Parameters:
+// - v (float64): The input value to the fswish function.
+//
+// Returns:
+// - float64: The output of the fswish function.
+func (fswish) F(v float64) float64 {
+	return v / (1 + math.Exp(-v))
+}
+
+// Df computes the derivative of the Swish activation function.
+//
+// Parameters:
+// - v (float64): The input value.
+//
+// Returns:
+// - float64: The derivative of the Swish activation function.
+func (fswish) Df(v float64) float64 {
+	return v / (1 + math.Exp(-v)) * (1 - v/(1+math.Exp(-v)))
+}
+
+// felu is a struct representing the Exponential Linear Unit (ELU) activation function.
+//
+// ELU is an activation function that is similar to ReLU but has a smoother gradient.
+// It is defined as f(x) = x if x >= 0, and f(x) = a * (exp(x) - 1) if x < 0.
+type felu struct{}
+
+// F computes the output of the ELU activation function.
+//
+// Parameters:
+// - v (float64): The input value to the ELU activation function.
+//
+// Returns:
+// - float64: The output of the ELU activation function.
+func (felu) F(v float64) float64 {
+	if v > 0 {
+		return v
+	}
+	return math.Exp(v) - 1
+}
+
+// Df computes the derivative of the ELU activation function.
+//
+// Parameters:
+// - v (float64): The input value.
+//
+// Returns:
+// - float64: The derivative of the ELU activation function.
+func (felu) Df(v float64) float64 {
+	if v > 0 {
+		return 1
+	}
+	return math.Exp(v)
+}
+
+// fgelu is a struct representing the GELU activation function.
+//
+// GELU stands for Gaussian Error Linear Unit.
+type fgelu struct{}
+
+// F calculates the output of the GELU activation function.
+//
+// Parameters:
+// - v (float64): The input value to the GELU activation function.
+//
+// Returns:
+// - float64: The output of the GELU activation function.
+func (fgelu) F(v float64) float64 {
+	return 0.5 * v * (1 + math.Tanh(math.Sqrt(2/math.Pi)*(v+0.044715*math.Pow(v, 3))))
+}
+
+// Df computes the derivative of the GELU activation function.
+//
+// Parameters:
+// - v (float64): The input value.
+//
+// Returns:
+// - float64: The derivative of the GELU activation function.
+func (fgelu) Df(v float64) float64 {
+	return 0.5*(1+math.Tanh(math.Sqrt(2/math.Pi)*(v+0.044715*math.Pow(v, 3)))) + 0.5*math.Pow(math.Tanh(math.Sqrt(2/math.Pi)*(v+0.044715*math.Pow(v, 3))), 2)
+}
+
+// fsoftlus is an implementation of the Softplus activation function.
+//
+// The Softplus activation function is a continuous, differentiable
+// approximation of the ReLU activation function. It is defined as
+// f(x) = log(1 + exp(x)).
+type fsoftlus struct{}
+
+// F calculates the output of the Softplus activation function.
+//
+// Parameters:
+// - v (float64): The input value to the Softplus activation function.
+//
+// Returns:
+// - float64: The output of the Softplus activation function.
+func (fsoftlus) F(v float64) float64 {
+	return math.Log(1 + math.Exp(v))
+}
+
+// Df computes the derivative of the Softplus activation function.
+//
+// Parameters:
+// - v (float64): The input value.
+//
+// Returns:
+// - float64: The derivative of the Softplus activation function.
+func (fsoftlus) Df(v float64) float64 {
+	return 1 / (1 + math.Exp(-v))
 }

@@ -17,7 +17,7 @@ Why not?
 ### Installation
 
 ```sh
-    go get github.com/markoxley/jasper
+    go get github.com/markoxley/jasper/v1
 ```
 
 ### Usage
@@ -32,7 +32,7 @@ Import the current version into your source:
     // Create configuration for the network
     // In this case, we have 13 input neurons, 11
     // output neurons and one hidden layer with 16 neurons
-    config := jasper.NewConfiguration[]uint32{13, 16, 11})
+    config := jasper.NewConfiguration[]uint32{13, 16, 11}
 
     // Create a new instance of the neural network,
     // passing the configurations
@@ -59,3 +59,22 @@ Import the current version into your source:
     // mindful of any returned errors
     pr, err := nn.Predict(in)
 ```
+
+The network can be configured to use the following activation functions for hidden layers. A different activation function may be selected for the output layer:
+
+- Sigmoid (Logistic) Function
+- ReLU (Rectified Linear Unit)
+- Tanh (Hyperbolic Tangent) Function
+- Leaky ReLU
+- Softplus
+- ELU (Exponential Linear Unit)
+- GELU (Gaussian Error Linear Unit)
+- Swish
+- Linear
+
+For error calculation, there are the following options:
+
+- Mean Squared Error
+- Mean Absolute Error
+- Binary Cross Entropy
+- Categorical Cross Entropys

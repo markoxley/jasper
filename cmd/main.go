@@ -1,15 +1,16 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"math"
 	"time"
 
 	v1 "github.com/markoxley/jasper/v1"
-	v2 "github.com/markoxley/jasper/v2"
 )
 
 const (
-	epochs       = 1000000
+	epochs       = 10_000
 	split        = 0.8
 	learningrate = 0.01
 )
@@ -37,6 +38,8 @@ var (
 		{1, 0, 4, 0},
 		{1, 1, 4, 0},
 	}
+
+	calcs = []string{"AND", "OR", "XOR", "NAND", "NOR"}
 )
 
 func splitData(data [][]float64) ([][]float64, [][]float64) {
@@ -51,10 +54,14 @@ func splitData(data [][]float64) ([][]float64, [][]float64) {
 func version1(i, o [][]float64, t []uint32) time.Duration {
 	start := time.Now()
 	td := v1.NewTrainingData(epochs, split, learningrate)
+	td.TargetError = 0.2
 	for idx := range i {
 		td.AddRow(i[idx], o[idx])
 	}
 	nc := v1.NewConfig(t)
+	nc.Error = v1.MeanSquaredError
+	nc.Activation = v1.Sigmoid
+	nc.Output = v1.Sigmoid
 	nn, err := v1.New(nc)
 	if err != nil {
 		panic(err)
@@ -64,40 +71,42 @@ func version1(i, o [][]float64, t []uint32) time.Duration {
 		panic(err)
 	}
 	log.Printf("Version1 error value: %v\n", errValue)
-	return time.Since(start)
-}
-
-func version2(i, o [][]float64, t []uint32) time.Duration {
-	start := time.Now()
-	td := v2.NewTrainingData(epochs, split, learningrate)
-	for idx := range i {
-		td.AddRow(i[idx], o[idx])
+	success := true
+	calcType := ""
+	for _, o := range org {
+		nct := calcs[int(o[2])]
+		if nct != calcType {
+			calcType = nct
+			fmt.Printf("Comparison: %v\n", calcType)
+		}
+		v, _ := nn.Predict(o[:3])
+		ok := "FALSE"
+		result := int(math.Round(v[0]))
+		if result == int(o[3]) {
+			ok = "TRUE"
+		}
+		if ok == "FALSE" {
+			success = false
+		}
+		fmt.Printf("\t%v = %v\tActual = %v\t%s\n", o[:3], o[3], result, ok)
 	}
-	nc := v2.NewConfig(t)
-	nn, err := v2.New(nc)
-	if err != nil {
-		panic(err)
+	if success {
+		fmt.Println("Training successful")
+	} else {
+		fmt.Println("Training failed")
 	}
-	errValue, err := nn.Train(td)
-	if err != nil {
-		panic(err)
-	}
-	log.Printf("Version2 error value: %v\n", errValue)
 	return time.Since(start)
 }
 func main() {
 	data := [][]float64{}
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 10; i++ {
 		data = append(data, org...)
 	}
 	log.Printf("%d data records\n", len(data))
 	inputs, outputs := splitData(data)
-	topology := []uint32{3, 4, 1}
+	topology := []uint32{3, 6, 1}
 	log.Println("Starting version 1...")
 	d1 := version1(inputs, outputs, topology)
 	log.Printf("Version1: %v seconds\n", d1.Seconds())
-	log.Println("Starting version 2...")
-	d2 := version2(inputs, outputs, topology)
-	log.Printf("Version2: %v seconds\n", d2.Seconds())
 
 }

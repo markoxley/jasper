@@ -1,15 +1,25 @@
+// matrix.go - Matrix functions used in the neural network.
+//
+// # Copyright 2024 Mark Oxley
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 package jasper
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 )
-
-type MatrixSaveData struct {
-	Cols   uint32    `json:"c"`
-	Rows   uint32    `json:"r"`
-	Values []float64 `json:"v"`
-}
 
 // Matrix holds the matrix data type
 type Matrix struct {
@@ -43,7 +53,7 @@ func NewMatrix(cols, rows uint32) *Matrix {
 // slc: A slice of float64 values to create the Matrix from.
 //
 // Returns a pointer to the newly created Matrix.
-func NewFromSlice(slc []float64) *Matrix {
+func NewMatrixFromSlice(slc []float64) *Matrix {
 	// Create a new Matrix with one column and the same number of rows as the length of the slice.
 	m := NewMatrix(uint32(len(slc)), 1)
 
@@ -428,49 +438,69 @@ func (m *Matrix) SetValues(vals []float64) error {
 	return nil
 }
 
-// ToSaveData converts the matrix to a MatrixSaveData object, which can be used for serialization.
+// MarshalJSON marshals the matrix to a JSON byte slice.
 //
-// This function returns a pointer to a MatrixSaveData object, which contains the
-// columns, rows, and values of the matrix.
-//
-// Returns:
-//   - A pointer to a MatrixSaveData object.
-func (m *Matrix) ToSaveData() *MatrixSaveData {
-	// Create a new MatrixSaveData object and set its fields to the corresponding fields of the matrix.
-	sd := MatrixSaveData{
-		Cols:   m.cols,   // Set the columns field to the value of the matrix's cols field.
-		Rows:   m.rows,   // Set the rows field to the value of the matrix's rows field.
-		Values: m.values, // Set the values field to the value of the matrix's values field.
-	}
-
-	// Return a pointer to the newly created MatrixSaveData object.
-	return &sd
-}
-
-
-// MatrixFromSaveData converts a MatrixSaveData object back into a Matrix object.
-// This is useful for deserialization.
+// MarshalJSON satisfies the json.Marshaler interface.
 //
 // Parameters:
-//   - sd: A pointer to a MatrixSaveData object containing the matrix data.
+//   - None
 //
 // Returns:
-//   - A pointer to a newly created Matrix object with the same data as the input.
-//   - An error if the input is nil or the matrix data is invalid.
-func MatrixFromSaveData(sd *MatrixSaveData) (*Matrix, error) {
-	// Check if the input is nil
-	if sd == nil {
-		// Return an error indicating that the input is missing
-		return nil, errors.New("missing save data")
+//   - A byte slice containing the JSON representation of the matrix
+//   - An error if the JSON marshaling failed
+func (m *Matrix) MarshalJSON() ([]byte, error) {
+
+	// Create a struct to hold the data that will be marshaled to JSON
+	res := struct {
+		// The number of columns in the matrix
+		Cols uint32 `json:"c"`
+		// The number of rows in the matrix
+		Rows uint32 `json:"r"`
+		// The values of the matrix
+		Values []float64 `json:"v"`
+	}{
+		// Initialize the Cols field with the number of columns in the matrix
+		Cols: m.cols,
+		// Initialize the Rows field with the number of rows in the matrix
+		Rows: m.rows,
+		// Initialize the Values field with the values of the matrix
+		Values: m.values,
 	}
 
-	// Create a new Matrix object and set its fields to the corresponding fields of the input
-	m := Matrix{
-		cols:   sd.Cols,   // Set the columns field to the value of the input's Cols field.
-		rows:   sd.Rows,   // Set the rows field to the value of the input's Rows field.
-		values: sd.Values, // Set the values field to the value of the input's Values field.
+	// Marshal the struct to a JSON byte slice
+	return json.Marshal(&res)
+}
+
+// UnmarshalJSON unmarshals the matrix from a JSON byte slice.
+//
+// UnmarshalJSON satisfies the json.Unmarshaler interface.
+//
+// Parameters:
+//   - body: the JSON byte slice to unmarshal.
+//
+// Returns:
+//   - An error if the JSON unmarshaling failed.
+func (m *Matrix) UnmarshalJSON(body []byte) (err error) {
+	// Create a struct to hold the data that will be unmarshaled from JSON
+	data := struct {
+		// The number of columns in the matrix
+		Cols uint32 `json:"c"`
+		// The number of rows in the matrix
+		Rows uint32 `json:"r"`
+		// The values of the matrix
+		Values []float64 `json:"v"`
+	}{}
+
+	// Unmarshal the JSON byte slice to the struct
+	if err := json.Unmarshal(body, &data); err != nil {
+		return err
 	}
 
-	// Return a pointer to the newly created Matrix object.
-	return &m, nil
+	// Initialize the Cols, Rows, and values fields of the matrix
+	m.cols = data.Cols
+	m.rows = data.Rows
+	m.values = data.Values
+
+	// Return nil to indicate success
+	return nil
 }
