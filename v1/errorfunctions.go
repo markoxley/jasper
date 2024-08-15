@@ -1,19 +1,18 @@
 // errorfunctions.go - Error functions used in the neural network.
 //
-// Copyright 2024 Mark Oxley
+// # Copyright 2024 Mark Oxley
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 package jasper
 
 import "math"
@@ -32,21 +31,21 @@ const (
 	CategoricalCrossEntropy
 )
 
-// ErrorSolver represents the interface for error calculation functions.
-type ErrorSolver interface {
-	// Calculate calculates the error between the predicted values and the target values.
+// errorSolver represents the interface for error calculation functions.
+type errorSolver interface {
+	// e calculates the error between the predicted values and the target values.
 	//
 	// vs: the predicted values.
 	// tgts: the target values.
 	// Returns the calculated error.
-	Calculate(vs, tgts []float64) float64
+	e(vs, tgts []float64) float64
 }
 
-// GetErrorFunction returns the error function corresponding to the given name.
+// getErrorFunction returns the error function corresponding to the given name.
 //
 // name: the name of the error function.
 // Returns the error function corresponding to the given name.
-func GetErrorFunction(name ErrorFunction) ErrorSolver {
+func getErrorFunction(name ErrorFunction) errorSolver {
 	switch name {
 	case MeanSquaredError:
 		return emse{}
@@ -63,12 +62,12 @@ func GetErrorFunction(name ErrorFunction) ErrorSolver {
 // emse represents the mean squared error function.
 type emse struct{}
 
-// Calculate calculates the mean squared error between the predicted values and the target values.
+// e calculates the mean squared error between the predicted values and the target values.
 //
 // vs: the predicted values.
 // tgts: the target values.
 // Returns the calculated mean squared error.
-func (emse) Calculate(vs, tgts []float64) float64 {
+func (emse) e(vs, tgts []float64) float64 {
 	var sum float64 // Initialize the sum to 0
 
 	for i, v := range vs {
@@ -80,12 +79,12 @@ func (emse) Calculate(vs, tgts []float64) float64 {
 // emae represents the mean absolute error function.
 type emae struct{}
 
-// Calculate calculates the mean absolute error between the predicted values and the target values.
+// e calculates the mean absolute error between the predicted values and the target values.
 //
 // vs: the predicted values.
 // tgts: the target values.
 // Returns the calculated mean absolute error.
-func (emae) Calculate(vs, tgts []float64) float64 {
+func (emae) e(vs, tgts []float64) float64 {
 	var sum float64 // Initialize the sum to 0
 	for i, v := range vs {
 		sum += math.Abs(v - tgts[i])
@@ -96,12 +95,12 @@ func (emae) Calculate(vs, tgts []float64) float64 {
 // ebce represents the binary cross entropy function.
 type ebce struct{}
 
-// Calculate calculates the binary cross entropy between the predicted values and the target values.
+// e calculates the binary cross entropy between the predicted values and the target values.
 //
 // vs: the predicted values.
 // tgts: the target values.
 // Returns the calculated binary cross entropy.
-func (ebce) Calculate(vs, tgts []float64) float64 {
+func (ebce) e(vs, tgts []float64) float64 {
 	var sum float64 // Initialize the sum to 0
 	for i, v := range vs {
 		sum += -(tgts[i]*math.Log(v) + (1-tgts[i])*math.Log(1-v))
@@ -112,12 +111,12 @@ func (ebce) Calculate(vs, tgts []float64) float64 {
 // ecce represents the categorical cross entropy function.
 type ecce struct{}
 
-// Calculate calculates the categorical cross entropy between the predicted values and the target values.
+// e calculates the categorical cross entropy between the predicted values and the target values.
 //
 // vs: the predicted values.
 // tgts: the target values.
 // Returns the calculated categorical cross entropy.
-func (ecce) Calculate(vs, tgts []float64) float64 {
+func (ecce) e(vs, tgts []float64) float64 {
 	var sum float64 // Initialize the sum to 0
 	for i, v := range vs {
 		sum += -(tgts[i] * math.Log(v))

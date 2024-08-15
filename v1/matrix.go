@@ -74,7 +74,7 @@ func NewMatrixFromSlice(slc []float64) *Matrix {
 //     the function applied to each element.
 //
 // ApplyFunction appies a function to the matrix elements
-func (m *Matrix) ApplyFunction(f NeuralFunction) *Matrix {
+func (m *Matrix) ApplyFunction(f neuralFunction) *Matrix {
 	// Create a new matrix with the same dimensions as the original matrix.
 	o := NewMatrix(m.cols, m.rows)
 

@@ -34,19 +34,19 @@ type Network struct {
 	activation ActivationFunction
 
 	// solver is the solver for the activation function.
-	solver ActivationSolver
+	solver activationSolver
 
 	// output is the output activation function of the network.
 	output ActivationFunction
 
 	// outputSolver is the solver for the output activation function.
-	outputSolver ActivationSolver
+	outputSolver activationSolver
 
 	// errFunc is the error function used in the network.
 	errFunc ErrorFunction
 
 	// errorSolver is the solver for the error function.
-	errorSolver ErrorSolver
+	errorSolver errorSolver
 
 	// debug is a boolean that indicates if the network is in debug mode.
 	debug bool
@@ -137,11 +137,11 @@ func New(c *NetworkConfiguration) (*Network, error) {
 		topology:     c.Topology,                           // Set the topology of the network.
 		learningRate: c.LearningRate,                       // Set the learning rate of the network.
 		activation:   c.Activation,                         // Set the function name of the network.
-		solver:       GetActivationFunctions(c.Activation), // Set the activation function of the network.
+		solver:       getActivationFunctions(c.Activation), // Set the activation function of the network.
 		output:       c.Output,
-		outputSolver: GetActivationFunctions(c.Output),
+		outputSolver: getActivationFunctions(c.Output),
 		errFunc:      c.Error,
-		errorSolver:  GetErrorFunction(c.Error),
+		errorSolver:  getErrorFunction(c.Error),
 		debug:        !c.Quiet, // Set the debug mode of the network.
 		sm:           c.SoftMax,
 	}
@@ -206,9 +206,9 @@ func (n *Network) feedForward(input []float64) error {
 
 		// Apply the activation function to the current layer's values.
 		if i < len(n.weightMatrices)-1 {
-			values = values.ApplyFunction(n.solver.F)
+			values = values.ApplyFunction(n.solver.f)
 		} else {
-			values = values.ApplyFunction(n.outputSolver.F)
+			values = values.ApplyFunction(n.outputSolver.f)
 		}
 	}
 
@@ -258,7 +258,7 @@ func (n *Network) backPropagate(tgtOut []float64) error {
 		}
 
 		// Apply the derivative of the activation function to the output values of the current layer.
-		dOutputs := n.valueMatrices[i+1].ApplyFunction(n.solver.Df)
+		dOutputs := n.valueMatrices[i+1].ApplyFunction(n.solver.df)
 
 		// Calculate the gradients of the error with respect to the weights and biases.
 		gradients, err := errMtx.MultiplyElements(dOutputs)
@@ -383,7 +383,7 @@ func (n *Network) Train(td *TrainingData) (float64, error) {
 			if err != nil {
 				return 0, fmt.Errorf("error testing error value: %v", err)
 			}
-			v := n.errorSolver.Calculate(errCheck.Ouput, answer)
+			v := n.errorSolver.e(errCheck.Ouput, answer)
 			if v > td.TargetError {
 				errorWithinTolerence = false
 			}
@@ -530,9 +530,9 @@ func (n *Network) UnmarshalJSON(body []byte) (err error) {
 	n.errFunc = ErrorFunction(data.ErrFunc)
 	n.debug = data.Debug
 	n.sm = data.SM
-	n.solver = GetActivationFunctions(n.activation)
-	n.outputSolver = GetActivationFunctions(n.output)
-	n.errorSolver = GetErrorFunction(n.errFunc)
+	n.solver = getActivationFunctions(n.activation)
+	n.outputSolver = getActivationFunctions(n.output)
+	n.errorSolver = getErrorFunction(n.errFunc)
 	n.valueMatrices = make([]*Matrix, len(n.topology))
 	return nil
 }
